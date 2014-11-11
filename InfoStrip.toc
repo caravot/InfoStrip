@@ -1,0 +1,5 @@
+## Interface: 60003
+## Title: InfoStrip
+## Notes: Liteweight data bar
+
+InfoStrip.lua
