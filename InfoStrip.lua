@@ -163,7 +163,7 @@ levelbtn:SetPoint("RIGHT", membtn, "LEFT", -10, 0)
 
 --Reputation info
 local repbtn = CreateFrame("BUTTON", "InfoStripRepBtn", f)
-repbtn:SetWidth(150)
+repbtn:SetWidth(200)
 repbtn:SetHeight(10)
 local repfs = repbtn:CreateFontString()
 repfs:SetFont(font, fontheight)
@@ -246,8 +246,8 @@ local function guildiesTooltip(self)
 	    table.sort(members, function(a, b) return a.name < b.name end)
 
 	    for k, v in pairs(members) do
-	      -- level 90 characters color green
-	      if v.level == 90 then
+	      -- level 100 characters color green
+	      if v.level == 100 then
 	        GameTooltip:AddDoubleLine(v.name, v.level, v.colors[1], v.colors[2], v.colors[3], 0, 1, 0)
 	      else
 	        GameTooltip:AddDoubleLine(v.name, v.level, v.colors[1], v.colors[2], v.colors[3], 1, 1, 1)
@@ -339,7 +339,7 @@ end
 
 -- Tooltip XP
 local function xpTooltip(self)
-	if UnitLevel("player") < 90 then
+	if UnitLevel("player") < 100 then
 		GameTooltip:SetOwner(self, "ANCHOR_NONE")
 		GameTooltip:SetPoint("TOPLEFT", self, "BOTTOMLEFT", -10, -25)
 		GameTooltip:SetText("Experience", 1, 1, 1)
@@ -501,7 +501,7 @@ function InfoStrip_eventHandler(self, event, arg1, arg2, ...)
 	local totalTimeLevel = 0
 
 	if event == "PLAYER_XP_UPDATE" or event == "PLAYER_LEVEL_UP" or event == "PLAYER_ENTERING_WORLD" then
-		if UnitLevel("player") < 90 then
+		if UnitLevel("player") < 100 then
 			levelinfo:SetFormattedText("XP: %d%%", (UnitXP("player") / UnitXPMax("player") * 100))
 		end 
 	elseif event == "MERCHANT_SHOW" then
