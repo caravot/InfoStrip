@@ -299,14 +299,13 @@ local function formatRewards(rewards, numRewards)
 
 		if (reward.itemID) then
 			local name, link, quality, iLevel, reqLevel, class, subclass, maxStack, equipSlot, texture, vendorPrice = GetItemInfo(reward.itemID)
-			local quantity_colors = ITEM_QUALITY_COLORS[quality]
+			--local quantity_colors = ITEM_QUALITY_COLORS[quality]
 
 			if name then 
 				Reward.tooltip = "Item: "..name
 			else
 				Reward.tooltip = "Item"
 			end
-			--tprint(ITEM_QUALITY_COLORS[quality])
 		else
 			Reward.title = reward.title
 
@@ -373,6 +372,7 @@ local function garrisonTooltip(self)
 	end
 
 	GameTooltip:AddLine("Buildings")
+    GameTooltip:AddDoubleLine("Name and Level", "Available/Max : # Ready + Time Left")
 
 	-- Building info
     local buildings = C_Garrison.GetBuildings()
@@ -382,12 +382,13 @@ local function garrisonTooltip(self)
 		local _, _, shipmentCapacity, shipmentsReady, shipmentsTotal, _, duration, timeleftString, itemName, itemIcon, itemQuality, itemID = C_Garrison.GetLandingPageShipmentInfo(buildingid);
 		
 		if shipmentsReady ~= nil then
-	        GameTooltip:AddDoubleLine(name..", level "..rank, "("..shipmentsTotal.."/"..shipmentCapacity.." : "..shipmentsReady.." ready) "..(timeleftString or ''), 1, 1, 1, 1, 1, 1)
+	        GameTooltip:AddDoubleLine(name..", level "..rank, "("..(shipmentCapacity-shipmentsTotal).."/"..shipmentCapacity.." : "..shipmentsReady.." ready) "..(timeleftString or ''), 1, 1, 1, 1, 1, 1)
 	    end
     end
 
 	GameTooltip:AddLine(" ")
 	GameTooltip:AddLine(#missions.completed.." Completed")
+    GameTooltip:AddDoubleLine("Name", "Rewards")
 
 	for k, v in pairs(missions.completed) do
         GameTooltip:AddDoubleLine(v.name, formatRewards(v.rewards, v.numrewards), 1, 1, 1, 1, 1, 1)
@@ -395,6 +396,7 @@ local function garrisonTooltip(self)
 
 	GameTooltip:AddLine(" ")
 	GameTooltip:AddLine(#missions.inprogress.." In Progress")
+    GameTooltip:AddDoubleLine("Name", "Time Left")
 
 	-- sort by time left
 	table.sort(missions.inprogress, function(a, b) return a.timeLeft < b.timeLeft end)
@@ -405,6 +407,7 @@ local function garrisonTooltip(self)
 
 	GameTooltip:AddLine(" ")
 	GameTooltip:AddLine(#missions.available.." Available")
+    GameTooltip:AddDoubleLine("Names in blue are rare missions", "Rewards")
 
 	-- sort by level
 	table.sort(missions.available, function(a, b) return a.level > b.level end)
@@ -624,6 +627,10 @@ f:RegisterEvent("PLAYER_LEVEL_UP")
 f:RegisterEvent("UPDATE_EXHAUSTION")
 f:RegisterEvent("MERCHANT_SHOW")
 f:RegisterEvent("UPDATE_FACTION")
+f:RegisterEvent("GARRISON_MISSION_FINISHED")
+f:RegisterEvent("GARRISON_MISSION_STARTED")
+f:RegisterEvent("GARRISON_BUILDING_UPDATE")
+f:RegisterEvent("GARRISON_LANDINGPAGE_SHIPMENTS")
 
 -- show infostrip
 f:Show()
