@@ -2,16 +2,11 @@ local space = 5 										-- Space between each frame
 local fontheight = 11									-- Fontsize
 local font = "Interface\\AddOns\\InfoStrip\\font.ttf"	-- Font
 local trackBadges = { 
-	  "Emblem of Frost",
-	  "Stone Keeper's Shard",
-	  "Emblem of Heroism",
-	  "Emblem of Triumph",
 	  "Honor Points",
 	  "Dalaran Cooking Award",
 	  "Darkmoon Prize Ticket",
 	  "Epicurean's Award",
-	  "Justice Points",
-	  "Valor Points"
+	  "Garrison Resources"
 } 														-- Badge names to track
 
 local MAX_ADDONS = 15									-- Maximum addons to display in dropdown list		
@@ -30,29 +25,30 @@ end
 local screenWidth = GetScreenWidth() * UIParent:GetEffectiveScale()
 local TimeSinceLastUpdate = 0
 local money = 0
+local garrisonLevel, _, _, _ = C_Garrison.GetGarrisonInfo()
 
 local CLASS_COLORS = {
-	["HUNTER"] 			= { 0.67, 0.83, 0.45 },
-	["WARLOCK"] 		= { 0.58, 0.51, 0.79 },
-	["PRIEST"] 			= { 1.0, 1.0, 1.0 },
-	["PALADIN"] 		= { 0.96, 0.55, 0.73 },
-	["MAGE"] 			= { 0.41, 0.8, 0.94 },
-	["ROGUE"] 			= { 1.0, 0.96, 0.41 },
-	["DRUID"] 			= { 1.0, 0.49, 0.04 },
-	["SHAMAN"] 			= { 0.0, 0.44, 0.87 },
-	["WARRIOR"] 		= { 0.78, 0.61, 0.43 },
-	["DEATH KNIGHT"] 	= { 0.77, 0.12 , 0.23 }
+	["HUNTER"] 			= { 0.67, 	0.83, 	0.45 	},
+	["WARLOCK"] 		= { 0.58, 	0.51, 	0.79 	},
+	["PRIEST"] 			= { 1.0, 	1.0, 	1.0 	},
+	["PALADIN"] 		= { 0.96, 	0.55, 	0.73 	},
+	["MAGE"] 			= { 0.41, 	0.8, 	0.94 	},
+	["ROGUE"] 			= { 1.0, 	0.96, 	0.41 	},
+	["DRUID"] 			= { 1.0, 	0.49, 	0.04 	},
+	["SHAMAN"] 			= { 0.0, 	0.44, 	0.87 	},
+	["WARRIOR"] 		= { 0.78, 	0.61, 	0.43 	},
+	["DEATH KNIGHT"] 	= { 0.77, 	0.12 , 	0.23 	}
 }
 
 local FACTION_BAR_COLORS = {
-    {r = 0.8, g = 0.133, b = 0.133},
-    {r = 1, g = 0, b = 0},
-    {r = 0.933, g = 0.4, b = 0.133},
-    {r = 1, g = 1, b = 0},
-    {r = 0.749, g = 1, b = 0},
-    {r = 0, g = 1, b = 0.533},
-    {r = 0, g = 1, b = 0.8},
-    {r = 0, g = 1, b = 1}
+    { r = 0.8, 		g = 0.133, 	b = 0.133	},
+    { r = 1, 		g = 0, 		b = 0 		},
+    { r = 0.933, 	g = 0.4, 	b = 0.133 	},
+    { r = 1, 		g = 1, 		b = 0 		},
+    { r = 0.749, 	g = 1, 		b = 0 		},
+    { r = 0, 		g = 1, 		b = 0.533 	},
+    { r = 0, 		g = 1, 		b = 0.8 	},
+    { r = 0, 		g = 1, 		b = 1 		}
 };
 
 local FACTION_STANDINGS = { "Hated", "Hostile", "Unfriendly", "Neutral", "Friendly", "Honored", "Revered", "Exalted" }
@@ -159,7 +155,10 @@ levelbtn:SetHeight(10)
 local levelinfo = levelbtn:CreateFontString()
 levelinfo:SetFont(font, fontheight)
 levelbtn:SetFontString(levelinfo)
-levelbtn:SetPoint("RIGHT", membtn, "LEFT", -10, 0)
+
+if UnitLevel("player") < 100 then
+	levelbtn:SetPoint("RIGHT", membtn, "LEFT", -10, 0)
+end
 
 --Reputation info
 local repbtn = CreateFrame("BUTTON", "InfoStripRepBtn", f)
@@ -168,7 +167,21 @@ repbtn:SetHeight(10)
 local repfs = repbtn:CreateFontString()
 repfs:SetFont(font, fontheight)
 repbtn:SetFontString(repfs)
-repbtn:SetPoint("RIGHT", levelbtn, "LEFT", -10, 0)
+if UnitLevel("player") < 100 then
+	repbtn:SetPoint("RIGHT", levelbtn, "LEFT", -10, 0)
+else
+	repbtn:SetPoint("RIGHT", membtn, "LEFT", -10, 0)
+end
+
+--Garrison button
+local garrisonbtn = CreateFrame("BUTTON", "InfoStripGarrisonBtn", f)
+garrisonbtn:SetWidth(40)
+garrisonbtn:SetHeight(10)
+local garrisonfs = garrisonbtn:CreateFontString()
+garrisonfs:SetFont(font, fontheight)
+garrisonbtn:SetFontString(garrisonfs)
+garrisonbtn:SetText("Garrison")
+garrisonbtn:SetPoint("RIGHT", repbtn, "LEFT", -10, 0)
 
 -- Tracking Drop down menu
 local TrackerDropDownMenu = CreateFrame("Frame", "TrackerDropDownMenu")
@@ -256,6 +269,157 @@ local function guildiesTooltip(self)
 
     	GameTooltip:Show()
 	end
+end
+
+function tprint (tbl, indent)
+  if not indent then indent = 0 end
+  for k, v in pairs(tbl) do
+    formatting = string.rep("  ", indent) .. k .. ": "
+    if type(v) == "table" then
+      print(formatting)
+      tprint(v, indent+1)
+    elseif type(v) == 'boolean' then
+      print(formatting .. tostring(v))      
+    else
+      print(formatting .. v)
+    end
+  end
+end
+
+-- Format garrison mission rewards to string
+local function formatRewards(rewards, numRewards)
+	local rtn = ''
+	local index = 1
+
+	for id, reward in pairs(rewards) do
+		local Reward = {};
+		Reward.itemID = nil;
+		Reward.currencyID = nil;
+		Reward.tooltip = nil;
+
+		if (reward.itemID) then
+			local name, link, quality, iLevel, reqLevel, class, subclass, maxStack, equipSlot, texture, vendorPrice = GetItemInfo(reward.itemID)
+			local quantity_colors = ITEM_QUALITY_COLORS[quality]
+
+			if name then 
+				Reward.tooltip = "Item: "..name
+			else
+				Reward.tooltip = "Item"
+			end
+			--tprint(ITEM_QUALITY_COLORS[quality])
+		else
+			Reward.title = reward.title
+
+			if (reward.currencyID and reward.quantity) then
+				if (reward.currencyID == 0) then
+					Reward.tooltip = GetMoneyString(reward.quantity);
+				else
+					local name, _, _, _, _, _, _ = GetCurrencyInfo(reward.currencyID)
+					Reward.tooltip = reward.quantity.." "..name
+				end
+			else
+				Reward.tooltip = reward.tooltip;
+			end
+		end
+
+		index = index + 1
+
+		if Reward.tooltip ~= nil then
+			rtn = rtn..' '..Reward.tooltip
+		end
+	end
+
+	return rtn
+end
+
+-- Tooltip Garrison
+local function garrisonTooltip(self)
+	local indent = 5
+	local missions = { completed = {}, inprogress = {}, available = {}, building = {} }
+
+	GameTooltip:SetOwner(self, "ANCHOR_NONE")
+	GameTooltip:SetPoint("TOPLEFT", self, "BOTTOMLEFT", 0, -25)
+
+	-- Completed/In Progress mission information
+	local items = C_Garrison.GetLandingPageItems() or {}
+	for i = 1, #items do
+		local item = items[i]
+		
+		if ( item ) then
+			local key = missions.inprogress
+
+			if item.isBuilding then
+				key = missions.building
+			else
+				if item.isComplete then
+					key = missions.completed
+				else
+					key = missions.inprogress
+				end
+			end
+			
+			table.insert(key, item)
+		end
+	end
+
+	-- Available Missions
+	local items = C_Garrison.GetAvailableMissions() or {}
+	for i = 1, #items do
+		local item = items[i]
+		
+		if ( item ) then
+			table.insert(missions.available, item)
+		end
+	end
+
+	GameTooltip:AddLine("Buildings")
+
+	-- Building info
+    local buildings = C_Garrison.GetBuildings()
+    for i = 1, #buildings do 
+    	local buildingid = buildings[i].buildingID;
+    	local id, name, texPrefix, icon, description, rank, currencyID, currencyQty, goldQty, buildTime, needsPlan, isPrebuilt, possSpecs, upgrades, canUpgrade, isMaxLevel, knownSpecs, currSpec, specCooldown, isBuilding, startTime, buildDuration, timeLeftStr, canActivate, hasFollowerSlot  = C_Garrison.GetBuildingInfo(buildingid);
+		local _, _, shipmentCapacity, shipmentsReady, shipmentsTotal, _, duration, timeleftString, itemName, itemIcon, itemQuality, itemID = C_Garrison.GetLandingPageShipmentInfo(buildingid);
+		
+		if shipmentsReady ~= nil then
+	        GameTooltip:AddDoubleLine(name..", level "..rank, "("..shipmentsTotal.."/"..shipmentCapacity.." : "..shipmentsReady.." ready) "..(timeleftString or ''), 1, 1, 1, 1, 1, 1)
+	    end
+    end
+
+	GameTooltip:AddLine(" ")
+	GameTooltip:AddLine(#missions.completed.." Completed")
+
+	for k, v in pairs(missions.completed) do
+        GameTooltip:AddDoubleLine(v.name, formatRewards(v.rewards, v.numrewards), 1, 1, 1, 1, 1, 1)
+    end
+
+	GameTooltip:AddLine(" ")
+	GameTooltip:AddLine(#missions.inprogress.." In Progress")
+
+	-- sort by time left
+	table.sort(missions.inprogress, function(a, b) return a.timeLeft < b.timeLeft end)
+
+	for k, v in pairs(missions.inprogress) do
+        GameTooltip:AddDoubleLine(v.name, v.timeLeft, 1, 1, 1, 1, 1, 1)
+    end
+
+	GameTooltip:AddLine(" ")
+	GameTooltip:AddLine(#missions.available.." Available")
+
+	-- sort by level
+	table.sort(missions.available, function(a, b) return a.level > b.level end)
+
+	for k, v in pairs(missions.available) do
+		local colors = { 1, 1, 1}
+
+		if v.isRare then
+			colors = { 0, 1, 1 }
+		end
+
+        GameTooltip:AddDoubleLine("("..v.level..") "..v.name.."\n"..string.rep(" ", indent)..v.cost.." resources, "..v.numFollowers.." follower", formatRewards(v.rewards, v.numrewards), colors[1], colors[2], colors[3], 1, 1, 1)
+    end
+
+	GameTooltip:Show()
 end
 
 -- Tooltip Friends
@@ -684,6 +848,9 @@ end
 
 mailbtn:SetScript("OnEnter", showmailtip)
 mailbtn:SetScript("OnLeave", hidemailtip)
+
+garrisonbtn:SetScript("OnEnter", garrisonTooltip)
+garrisonbtn:SetScript("OnLeave", hidetooltip)
 
 repbtn:SetScript("OnEnter", repTooltip)
 repbtn:SetScript("OnLeave", hidetooltip)
