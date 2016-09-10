@@ -1,4 +1,4 @@
-## Interface: 60003
+## Interface: 70000
 ## Title: InfoStrip
 ## Notes: Liteweight data bar
 
