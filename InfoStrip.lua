@@ -1,3 +1,6 @@
+-----------------------------------------------------
+-- GLOBAL VARIABLES
+-----------------------------------------------------
 local space = 5 -- Space between each frame
 local fontheight = 11 -- Fontsize
 local font = "Interface\\AddOns\\InfoStrip\\font.ttf" -- Font
@@ -12,9 +15,16 @@ local MAX_ADDONS = 15 -- Maximum addons to display in dropdown list
 local MAX_GUILDIES = 25 -- Maximum guild members to display in dropdown list
 local MAX_FACTIONS = 25 -- Maximum factions to display in dropdown list
 
------------------------------------------------------
--- GLOBAL VARIABLES
------------------------------------------------------
+-- Hide order hall bar
+if not IsAddOnLoaded("Blizzard_OrderHallUI") then
+    LoadAddOn("Blizzard_OrderHallUI")
+end
+
+local b = OrderHallCommandBar
+b:UnregisterAllEvents()
+b:SetScript("OnShow", b.Hide)
+b:Hide()
+
 function Set(list)
     local set = {}
     for _, l in ipairs(list) do set[l] = true end
@@ -468,13 +478,15 @@ local function friendsTooltip(self)
     friends = {} -- reset friends table
 
     for j = 1, BNGetNumFriends() do
-        local presenceID, givenName, surname, toonName, toonID, client, isOnline = BNGetFriendInfo(j)
-        local unknown, toonName, client, realmName, faction, race, class, unknown, zoneName, level, gameText, broadcastText, broadcastTime = BNGetToonInfo(presenceID)
+        local bnetIDAccount  = BNGetFriendInfo(j)
+        local _, accountName, _, _, _, bnetIDGameAccount, client, isOnline = BNGetFriendInfoByID(bnetIDAccount)
 
-        if isOnline then
+        if isOnline and client ~= nil and client ~= "App" then
+            local _, characterName, _, realmName, realmID, _, _, class, _, _, level  = BNGetGameAccountInfo(bnetIDGameAccount)
+
             local colors = classColor(string.upper(class))
 
-            table.insert(friends, { name = givenName, toonName = toonName, level = level, realmName = realmName, colors = colors })
+           table.insert(friends, { name = accountName, toonName = characterName, level = level, realmName = realmName, colors = colors })
         end
     end
 
@@ -519,9 +531,9 @@ local function xpTooltip(self)
         GameTooltip:SetOwner(self, "ANCHOR_NONE")
         GameTooltip:SetPoint("TOPLEFT", self, "BOTTOMLEFT", -10, -25)
         GameTooltip:SetText("Experience", 1, 1, 1)
-        GameTooltip:AddDoubleLine("Total XP: ", UnitXP('player'), nil, nil, nil, 1, 1, 1)
-        GameTooltip:AddDoubleLine("XP till next level: ", UnitXPMax('player'), nil, nil, nil, 1, 1, 1)
-        GameTooltip:AddDoubleLine("|c0000ff00Rested XP ", GetXPExhaustion() .. "|r", 1, 1, 1, 1, 1, 1)
+        GameTooltip:AddDoubleLine("Total XP: ", comma_value(UnitXP('player')), nil, nil, nil, 1, 1, 1)
+        GameTooltip:AddDoubleLine("XP till next level: ", comma_value(UnitXPMax('player')), nil, nil, nil, 1, 1, 1)
+        GameTooltip:AddDoubleLine("|c0000ff00Rested XP ", comma_value(GetXPExhaustion()) .. "|r", 1, 1, 1, 1, 1, 1)
         GameTooltip:Show()
     end
 end
@@ -617,7 +629,6 @@ f:RegisterEvent("PLAYER_LOGIN")
 f:RegisterEvent("ZONE_CHANGED")
 f:RegisterEvent("ZONE_CHANGED_INDOORS")
 f:RegisterEvent("MINIMAP_UPDATE_TRACKING")
-f:RegisterEvent("UNIT_HAPPINESS")
 f:RegisterEvent("BN_FRIEND_ACCOUNT_OFFLINE")
 f:RegisterEvent("BN_FRIEND_ACCOUNT_ONLINE")
 f:RegisterEvent("FRIENDLIST_UPDATE")
@@ -636,10 +647,15 @@ f:RegisterEvent("PLAYER_LEVEL_UP")
 f:RegisterEvent("UPDATE_EXHAUSTION")
 f:RegisterEvent("MERCHANT_SHOW")
 f:RegisterEvent("UPDATE_FACTION")
+f:RegisterEvent("GARRISON_FOLLOWER_ADDED")
+f:RegisterEvent("GARRISON_FOLLOWER_REMOVED")
+f:RegisterEvent("GARRISON_TALENT_UPDATE")
+f:RegisterEvent("GARRISON_TALENT_COMPLETE")
 f:RegisterEvent("GARRISON_MISSION_FINISHED")
 f:RegisterEvent("GARRISON_MISSION_STARTED")
 f:RegisterEvent("GARRISON_BUILDING_UPDATE")
 f:RegisterEvent("GARRISON_LANDINGPAGE_SHIPMENTS")
+f:RegisterEvent("GARRISON_FOLLOWER_CATEGORIES_UPDATED")
 f:RegisterEvent("ARTIFACT_UPDATE")
 f:RegisterEvent("ARTIFACT_XP_UPDATE")
 f:RegisterEvent("UNIT_INVENTORY_CHANGED")
@@ -868,8 +884,8 @@ end
 mailbtn:SetScript("OnEnter", showmailtip)
 mailbtn:SetScript("OnLeave", hidemailtip)
 
-classhallbtn:SetScript("OnEnter", classHallTooltip)
-classhallbtn:SetScript("OnLeave", hidetooltip)
+--classhallbtn:SetScript("OnEnter", classHallTooltip)
+--classhallbtn:SetScript("OnLeave", hidetooltip)
 
 repbtn:SetScript("OnEnter", repTooltip)
 repbtn:SetScript("OnLeave", hidetooltip)
@@ -888,6 +904,7 @@ f:SetScript("OnUpdate", function(self, elapsed)
     TimeSinceLastUpdate = TimeSinceLastUpdate + elapsed
     if TimeSinceLastUpdate >= 1 then
         GuildRoster()
+
         local hour, min = GetGameTime()
         local unitx, unity = GetPlayerMapPosition("player")
 
@@ -896,3 +913,14 @@ f:SetScript("OnUpdate", function(self, elapsed)
         TimeSinceLastUpdate = 0
     end
 end)
+
+function comma_value(amount)
+    local formatted = amount
+    while true do
+        formatted, k = string.gsub(formatted, "^(-?%d+)(%d%d%d)", '%1,%2')
+        if (k==0) then
+            break
+        end
+    end
+    return formatted
+end
