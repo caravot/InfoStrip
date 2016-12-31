@@ -860,9 +860,9 @@ function calculateThreat()
             ThreatText = string.format("%sAGGRO", Color.red)
 
         end
-
-        threatfs:SetText(ThreatText)
     end
+
+    threatfs:SetText(ThreatText)
 end
 
 function FindInSet(set, item)
