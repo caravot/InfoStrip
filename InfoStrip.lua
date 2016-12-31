@@ -14,6 +14,7 @@ local trackBadges = {
 local MAX_ADDONS = 15 -- Maximum addons to display in dropdown list
 local MAX_GUILDIES = 25 -- Maximum guild members to display in dropdown list
 local MAX_FACTIONS = 25 -- Maximum factions to display in dropdown list
+local MAX_LEVEL = 110
 
 -- Hide order hall bar
 if not IsAddOnLoaded("Blizzard_OrderHallUI") then
@@ -111,8 +112,7 @@ friendfs:SetFont(font, fontheight)
 friendbtn:SetFontString(friendfs)
 friendbtn:SetPoint("LEFT", badgebtn, "RIGHT", space, 0)
 
---Guildies button (if in guild)
---if IsInGuild() then
+--Guildies button
 local guildiesbtn = CreateFrame("BUTTON", "InfoStripGuildiesBtn", f)
 guildiesbtn:SetWidth(75)
 guildiesbtn:SetHeight(10)
@@ -120,7 +120,6 @@ local guildiesfs = guildiesbtn:CreateFontString()
 guildiesfs:SetFont(font, fontheight)
 guildiesbtn:SetFontString(guildiesfs)
 guildiesbtn:SetPoint("LEFT", friendbtn, "RIGHT", space, 0)
---end
 
 -- Main text
 local fs = f:CreateFontString(nil, "LOW")
@@ -168,7 +167,7 @@ local levelinfo = levelbtn:CreateFontString()
 levelinfo:SetFont(font, fontheight)
 levelbtn:SetFontString(levelinfo)
 
-if UnitLevel("player") < 110 then
+if UnitLevel("player") < MAX_LEVEL then
     levelbtn:SetPoint("RIGHT", membtn, "LEFT", -10, 0)
 end
 
@@ -179,7 +178,7 @@ repbtn:SetHeight(10)
 local repfs = repbtn:CreateFontString()
 repfs:SetFont(font, fontheight)
 repbtn:SetFontString(repfs)
-if UnitLevel("player") < 110 then
+if UnitLevel("player") < MAX_LEVEL then
     repbtn:SetPoint("RIGHT", levelbtn, "LEFT", -10, 0)
 else
     repbtn:SetPoint("RIGHT", membtn, "LEFT", -10, 0)
@@ -195,30 +194,45 @@ classhallbtn:SetFontString(classhallfs)
 classhallbtn:SetText("Class Hall")
 classhallbtn:SetPoint("RIGHT", repbtn, "LEFT", -10, 0)
 
+--Threat Button
+local threatbtn = CreateFrame("BUTTON", "InfoStripThreatBtn", f)
+threatbtn:SetWidth(175)
+threatbtn:SetHeight(10)
+local threatfs = threatbtn:CreateFontString()
+threatfs:SetFont(font, fontheight)
+threatbtn:SetFontString(threatfs)
+threatbtn:SetText("Threat")
+threatbtn:SetPoint("RIGHT", classhallbtn, "Right", -10, 0)
+
+---------------------------------------------------------
 -- Tracking Drop down menu
+---------------------------------------------------------
 local TrackerDropDownMenu = CreateFrame("Frame", "TrackerDropDownMenu")
 TrackerDropDownMenu.displayMode = "MENU"
 TrackerDropDownMenu.initialize = function(self, level) end
 
 local tracking_items = {}
 TrackerDropDownMenu.initialize = function(self, level)
-    if not level then return end
+    if not level then
+        return
+    end
+
     wipe(tracking_items)
+
     if level == 1 then
         tracking_items.disabled = nil
         tracking_items.isTitle = nil
         tracking_items.notCheckable = nil
 
         local num = GetNumTrackingTypes()
+
         for i = 1, num do
             local name, texture, active, category = GetTrackingInfo(i)
-            tracking_items.text = name
-            tracking_items.func = function() SetTracking(i) end
 
-            if active then
-                tracking_items.checked = true
-            else
-                tracking_items.checked = false
+            tracking_items.text = name
+            tracking_items.checked = active
+            tracking_items.func = function()
+                SetTracking(i, not active)
             end
 
             UIDropDownMenu_AddButton(tracking_items, level)
@@ -240,7 +254,7 @@ local function badgeTooltip(self)
         local found = FindInSet(trackBadges, name)
 
         if found then
-            GameTooltip:AddDoubleLine(name, count, nil, nil, nil, 1, 1, 1)
+            GameTooltip:AddDoubleLine(name, comma_value(count), nil, nil, nil, 1, 1, 1)
         end
     end
 
@@ -248,7 +262,7 @@ local function badgeTooltip(self)
         local _, _, name, _, totalPower, traitsLearned = C_ArtifactUI.GetEquippedArtifactInfo()
         local numTraitsLearnable, power, powerForNextTrait = MainMenuBar_GetNumArtifactTraitsPurchasableFromXP(traitsLearned, totalPower)
 
-        GameTooltip:AddDoubleLine(name, totalPower..' - '..powerForNextTrait, nil, nil, nil, 1, 1, 1)
+        GameTooltip:AddDoubleLine(name, comma_value(totalPower)..' - '..comma_value(powerForNextTrait), nil, nil, nil, 1, 1, 1)
     end
 
     GameTooltip:Show()
@@ -262,7 +276,7 @@ local function guildiesTooltip(self)
 
         GameTooltip:SetOwner(self, "ANCHOR_NONE")
         GameTooltip:SetPoint("TOPLEFT", self, "BOTTOMLEFT", 0, -25)
-
+        GameTooltip:SetText("Guildies", 1, 1, 1)
 
         for i = 0, math.min(MAX_GUILDIES, numOnline) do
             local name, rank, rankIndex, level, class, zone, note, officernote, online, status, classFileName = GetGuildRosterInfo(i)
@@ -278,8 +292,7 @@ local function guildiesTooltip(self)
         table.sort(members, function(a, b) return a.name < b.name end)
 
         for k, v in pairs(members) do
-            -- level 100 characters color green
-            if v.level == 100 then
+            if v.level == MAX_LEVEL then
                 GameTooltip:AddDoubleLine(v.name, v.level, v.colors[1], v.colors[2], v.colors[3], 0, 1, 0)
             else
                 GameTooltip:AddDoubleLine(v.name, v.level, v.colors[1], v.colors[2], v.colors[3], 1, 1, 1)
@@ -303,6 +316,40 @@ function tprint(tbl, indent)
             print(formatting .. v)
         end
     end
+end
+
+function print_r( t )
+    local print_r_cache={}
+    local function sub_print_r(t,indent)
+        if (print_r_cache[tostring(t)]) then
+            print(indent.."*"..tostring(t))
+        else
+            print_r_cache[tostring(t)]=true
+            if (type(t)=="table") then
+                for pos,val in pairs(t) do
+                    if (type(val)=="table") then
+                        print(indent.."["..pos.."] => "..tostring(t).." {")
+                        sub_print_r(val,indent..string.rep(" ",string.len(pos)+8))
+                        print(indent..string.rep(" ",string.len(pos)+6).."}")
+                    elseif (type(val)=="string") then
+                        print(indent.."["..pos..'] => "'..val..'"')
+                    else
+                        print(indent.."["..pos.."] => "..tostring(val))
+                    end
+                end
+            else
+                print(indent..tostring(t))
+            end
+        end
+    end
+    if (type(t)=="table") then
+        print(tostring(t).." {")
+        sub_print_r(t,"  ")
+        print("}")
+    else
+        sub_print_r(t,"  ")
+    end
+    print()
 end
 
 -- Format class hall mission rewards to string
@@ -527,7 +574,7 @@ end
 
 -- Tooltip XP
 local function xpTooltip(self)
-    if UnitLevel("player") < 110 then
+    if UnitLevel("player") < MAX_LEVEL then
         GameTooltip:SetOwner(self, "ANCHOR_NONE")
         GameTooltip:SetPoint("TOPLEFT", self, "BOTTOMLEFT", -10, -25)
         GameTooltip:SetText("Experience", 1, 1, 1)
@@ -617,6 +664,33 @@ local function memtooltip(self)
     GameTooltip:Show()
 end
 
+-- money tooltip
+local function moneytooltip(self)
+    local chars = {}
+    local total = 0
+
+    GameTooltip:SetOwner(self, "ANCHOR_NONE")
+    GameTooltip:SetPoint("TOPRIGHT", self, "BOTTOMLEFT", 450, -25)
+    GameTooltip:SetText("Characters", 1, 1, 1)
+    print_r(Infostrip)
+    for character, data in pairs(Infostrip) do
+        total = total + data.money
+        table.insert(chars, { name = character, money = data.money, class = data.class })
+    end
+
+    table.sort(chars, function(a, b) return a.money > b.money end)
+
+    for i, data in pairs(chars) do
+        local colors = classColor(data.class)
+
+        GameTooltip:AddDoubleLine(format("%s", data.name), format("%s", GetCoinTextureString(data.money)), colors[1], colors[2], colors[3], 1, 1, 1)
+    end
+
+    GameTooltip:AddLine("|r", 1, 1, 1)
+    GameTooltip:AddDoubleLine("|rTotal: ", format("%s", GetCoinTextureString(total)), 1, 1, 1, 1, 1, 1)
+    GameTooltip:Show()
+end
+
 btn:Show()
 
 f:EnableMouse(true)
@@ -659,6 +733,9 @@ f:RegisterEvent("GARRISON_FOLLOWER_CATEGORIES_UPDATED")
 f:RegisterEvent("ARTIFACT_UPDATE")
 f:RegisterEvent("ARTIFACT_XP_UPDATE")
 f:RegisterEvent("UNIT_INVENTORY_CHANGED")
+f:RegisterEvent("VARIABLES_LOADED")
+f:RegisterEvent("PLAYER_LOGOUT")
+f:RegisterEvent("ADDON_LOADED")
 
 -- show infostrip
 f:Show()
@@ -699,8 +776,9 @@ function InfoStrip_eventHandler(self, event, arg1, arg2, ...)
     local totalTimePlayed = 0
     local totalTimeLevel = 0
 
+    -- global variables
     if event == "PLAYER_XP_UPDATE" or event == "PLAYER_LEVEL_UP" or event == "PLAYER_ENTERING_WORLD" then
-        if UnitLevel("player") < 110 then
+        if UnitLevel("player") < MAX_LEVEL then
             levelinfo:SetFormattedText("XP: %d%%", (UnitXP("player") / UnitXPMax("player") * 100))
         end
     elseif event == "MERCHANT_SHOW" then
@@ -708,8 +786,31 @@ function InfoStrip_eventHandler(self, event, arg1, arg2, ...)
         RepairItems()
     end
 
+    -- save/get currenty from all characters
+    if event == "PLAYER_MONEY" then
+        Infostrip[GetUnitName("player")].money = GetMoney()
+    end
+
+    if event == "ADDON_LOADED" and arg1 == "InfoStrip" then
+        if Infostrip == nil then
+            Infostrip = {}
+        end
+
+        if Infostrip[GetUnitName("player")] == nil then
+            class, classFileName = UnitClass("player")
+
+            Infostrip[GetUnitName("player")] = { money = GetMoney(), class = classFileName }
+        end
+    end
+
+    if event == "PLAYER_LOGOUT" then
+         Infostrip[GetUnitName("player")].money = GetMoney()
+    end
+
     friendbtn:SetText("Friends: " .. friends)
     btn:SetFormattedText(getTrackingText())
+
+    calculateThreat()
 
     if IsInGuild() then
         local numGuildMembers, numOnline, numOnlineAndMobile = GetNumGuildMembers()
@@ -739,6 +840,31 @@ end
 ---------------------------------------------------------
 -- Helper Functions
 ---------------------------------------------------------
+function calculateThreat()
+    local inCombat = UnitAffectingCombat("player")
+    local status = UnitThreatSituation("player")
+    local ThreatText = ""
+    local Color = {
+        ["green"] = "|cff00ff00",
+        ["yellow"] = "|cffffff00",
+        ["orange"] = "|cffFF4500",
+        ["red"] = "|cffff0000"
+    }
+
+    if inCombat and status then
+        if status == 0 or status == 1 then
+            ThreatText = string.format("%sTHREAT", Color.yellow)
+        elseif status == 2 then
+            ThreatText = string.format("%sWEAK AGGRO", Color.orange)
+        elseif status == 3 then
+            ThreatText = string.format("%sAGGRO", Color.red)
+
+        end
+
+        threatfs:SetText(ThreatText)
+    end
+end
+
 function FindInSet(set, item)
     for k, v in pairs(set) do
         if v == item then return true end
@@ -773,6 +899,7 @@ end
 
 function RepairItems()
     local canRepair = CanMerchantRepair()
+
     -- Auto repair items
     if canRepair then
         local repairCost = GetRepairAllCost()
@@ -899,6 +1026,8 @@ membtn:SetScript("OnEnter", memtooltip)
 membtn:SetScript("OnLeave", hidetooltip)
 
 f:SetScript("OnEvent", InfoStrip_eventHandler)
+f:SetScript("OnEnter", moneytooltip)
+f:SetScript("OnLeave", hidetooltip)
 btn:SetScript("OnClick", InfoStrip_changeTrack)
 f:SetScript("OnUpdate", function(self, elapsed)
     TimeSinceLastUpdate = TimeSinceLastUpdate + elapsed
@@ -909,7 +1038,7 @@ f:SetScript("OnUpdate", function(self, elapsed)
         local unitx, unity = GetPlayerMapPosition("player")
 
         memfs:SetFormattedText("%dms %dfps", select(3, GetNetStats()), GetFramerate())
-        timefs:SetFormattedText("(%d, %d)  %s:%s %s", (unitx * 100), (unity * 100), GetHour(hour), GetMin(min), GetDST(hour))
+        --timefs:SetFormattedText("(%d, %d)  %s:%s %s", (unitx * 100), (unity * 100), GetHour(hour), GetMin(min), GetDST(hour))
         TimeSinceLastUpdate = 0
     end
 end)
