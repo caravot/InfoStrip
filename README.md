@@ -7,13 +7,14 @@ InfoStrip is a light weight data broker addon. I didn't want the bulkiness of so
 In addition to the features of the bar below it also auto sells grey items in your bags (and tells you what was sold and for how much in your chat window). It also auto repairs your items, first by using Guild funds if possible then by using your own funds.
 
 All features are listed below (from left to right on the bar):
-* **Garrison:** Displays basic information about your garrison to include the number of available work order, number of shipments ready to pickup, and tlme to next shipment. Also shows completed mission, missions in progress (to include time left), and available missions to include diplaying its rewards, mission leve, and if the mission is rare.
 * **Tracking:** Change/show what you are currently tracking. Useful for those who want a minimalistic UI since you can now hide your Minimap button but always know what your tracking.
 * **Badges:** Hover will show you the badge name and total for all badge names specified in the file.
 * **Friends/Guildies:** Shows the number of friends and guild members online. On hover displays information about members. Clicking the button text will bring up the appropriate display.
 * **Location:** Shows zone/sub-zone if not in an instances. If in an instance/raid, will display the name of the instance, the difficulty level, and the party size.
-* **Reputation:** Shows the current tracked reputation, your reaction to them, and what percentage into that reaction you are. Hovering over this shows a list (sorted by reaction) of reps you are at least friendly with but less than exhalted with.
+* **Reputation:** Shows the current tracked reputation, your reaction to them, and what percentage into that reaction you are. Hovering over this shows a list (sorted by reaction) of reps you are at least friendly with but less than exalted with.
 * **Durability:** The percentage your gear is currently at.
+* **Aggro:** Show if you have aggro or are threatening to gain aggro
+* **Class Hall:** Hover to see the current class hall missions to include completed, in progress, and available.
 * **XP:** Displays only for those below level 90 and show the current percentage you are into the current level. On hover displays more information about your experience.
 * **Latency/FPS:** Simple memory display. On hover displays all your addons along with the memory used for each.
 * **New Mail:** Displays if there is mail, otherwise displays "No Mail". On hover displays the first three senders.
