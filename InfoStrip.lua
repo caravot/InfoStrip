@@ -5,16 +5,13 @@ local space = 5 -- Space between each frame
 local fontheight = 11 -- Fontsize
 local font = "Interface\\AddOns\\InfoStrip\\font.ttf" -- Font
 local trackBadges = {
-    "Honor Points",
-    "Nethershard",
-    "Order Resources",
-    "Darkmoon Prize Ticket"
+    "War Resources"
 } -- Badge names to track
 
 local MAX_ADDONS = 15 -- Maximum addons to display in dropdown list
 local MAX_GUILDIES = 25 -- Maximum guild members to display in dropdown list
 local MAX_FACTIONS = 25 -- Maximum factions to display in dropdown list
-local MAX_LEVEL = 110
+local MAX_LEVEL = 120
 
 -- Hide order hall bar
 if not IsAddOnLoaded("Blizzard_OrderHallUI") then
@@ -36,6 +33,17 @@ local screenWidth = GetScreenWidth() * UIParent:GetEffectiveScale()
 local TimeSinceLastUpdate = 0
 local money = 0
 
+local GetPlayerMapPosition = GetPlayerMapPosition
+
+if C_Map then   -- From 8.0
+    GetBestMapForUnit = C_Map.GetBestMapForUnit
+    GetPlayerMapPosition = C_Map.GetPlayerMapPosition
+else
+    local GetCursorPosition = GetCursorPosition
+end
+
+local xPlayer, yPlayer, xCursor, yCursor;
+
 local CLASS_COLORS = {
     ["HUNTER"] = { 0.67, 0.83, 0.45 },
     ["WARLOCK"] = { 0.58, 0.51, 0.79 },
@@ -46,7 +54,9 @@ local CLASS_COLORS = {
     ["DRUID"] = { 1.0, 0.49, 0.04 },
     ["SHAMAN"] = { 0.0, 0.44, 0.87 },
     ["WARRIOR"] = { 0.78, 0.61, 0.43 },
-    ["DEATH KNIGHT"] = { 0.77, 0.12, 0.23 }
+    ["DEATH KNIGHT"] = { 0.77, 0.12, 0.23 },
+    ["DEMON HUNTER"] = { 0.64, 0.19, 0.79 },
+    ["MONK"] = { 0.00, 1.00, 0.59 }
 }
 
 local FACTION_BAR_COLORS = {
@@ -124,11 +134,7 @@ guildiesbtn:SetPoint("LEFT", friendbtn, "RIGHT", space, 0)
 -- Main text
 local fs = f:CreateFontString(nil, "LOW")
 fs:SetFont(font, fontheight)
-if IsInGuild() then
-    fs:SetPoint("LEFT", guildiesbtn, "RIGHT", space, 0)
-else
-    fs:SetPoint("LEFT", friendbtn, "RIGHT", space, 0)
-end
+fs:SetPoint("LEFT", guildiesbtn, "RIGHT", space, 0)
 
 --[[RIGHT SIDE]] --
 
@@ -194,6 +200,16 @@ classhallbtn:SetFontString(classhallfs)
 classhallbtn:SetText("Class Hall")
 classhallbtn:SetPoint("RIGHT", repbtn, "LEFT", -10, 0)
 
+--World Quests
+local wqbtn = CreateFrame("BUTTON", "InfoStripWQBtn", f)
+wqbtn:SetWidth(175)
+wqbtn:SetHeight(10)
+local wqfs = wqbtn:CreateFontString()
+wqfs:SetFont(font, fontheight)
+wqbtn:SetFontString(wqfs)
+wqbtn:SetText("World Quests")
+wqbtn:SetPoint("RIGHT", classhallbtn, "Right", -10, 0)
+
 --Threat Button
 local threatbtn = CreateFrame("BUTTON", "InfoStripThreatBtn", f)
 threatbtn:SetWidth(175)
@@ -202,7 +218,7 @@ local threatfs = threatbtn:CreateFontString()
 threatfs:SetFont(font, fontheight)
 threatbtn:SetFontString(threatfs)
 threatbtn:SetText("Threat")
-threatbtn:SetPoint("RIGHT", classhallbtn, "Right", -10, 0)
+threatbtn:SetPoint("RIGHT", wqbtn, "Right", -10, 0)
 
 ---------------------------------------------------------
 -- Tracking Drop down menu
@@ -258,12 +274,12 @@ local function badgeTooltip(self)
         end
     end
 
-    if HasArtifactEquipped() then
-        local _, _, name, _, totalPower, traitsLearned = C_ArtifactUI.GetEquippedArtifactInfo()
-        local numTraitsLearnable, power, powerForNextTrait = MainMenuBar_GetNumArtifactTraitsPurchasableFromXP(traitsLearned, totalPower)
+    -- if HasArtifactEquipped() then
+    --     local _, _, name, _, totalPower, traitsLearned = C_ArtifactUI.GetEquippedArtifactInfo()
+    --     local numTraitsLearnable, power, powerForNextTrait = MainMenuBar_GetNumArtifactTraitsPurchasableFromXP(traitsLearned, totalPower)
 
-        GameTooltip:AddDoubleLine(name, comma_value(totalPower)..' - '..comma_value(powerForNextTrait), nil, nil, nil, 1, 1, 1)
-    end
+    --     GameTooltip:AddDoubleLine(name, comma_value(totalPower)..' - '..comma_value(powerForNextTrait), nil, nil, nil, 1, 1, 1)
+    -- end
 
     GameTooltip:Show()
 end
@@ -301,55 +317,6 @@ local function guildiesTooltip(self)
 
         GameTooltip:Show()
     end
-end
-
-function tprint(tbl, indent)
-    if not indent then indent = 0 end
-    for k, v in pairs(tbl) do
-        formatting = string.rep("  ", indent) .. k .. ": "
-        if type(v) == "table" then
-            print(formatting)
-            tprint(v, indent + 1)
-        elseif type(v) == 'boolean' then
-            print(formatting .. tostring(v))
-        else
-            print(formatting .. v)
-        end
-    end
-end
-
-function print_r( t )
-    local print_r_cache={}
-    local function sub_print_r(t,indent)
-        if (print_r_cache[tostring(t)]) then
-            print(indent.."*"..tostring(t))
-        else
-            print_r_cache[tostring(t)]=true
-            if (type(t)=="table") then
-                for pos,val in pairs(t) do
-                    if (type(val)=="table") then
-                        print(indent.."["..pos.."] => "..tostring(t).." {")
-                        sub_print_r(val,indent..string.rep(" ",string.len(pos)+8))
-                        print(indent..string.rep(" ",string.len(pos)+6).."}")
-                    elseif (type(val)=="string") then
-                        print(indent.."["..pos..'] => "'..val..'"')
-                    else
-                        print(indent.."["..pos.."] => "..tostring(val))
-                    end
-                end
-            else
-                print(indent..tostring(t))
-            end
-        end
-    end
-    if (type(t)=="table") then
-        print(tostring(t).." {")
-        sub_print_r(t,"  ")
-        print("}")
-    else
-        sub_print_r(t,"  ")
-    end
-    print()
 end
 
 -- Format class hall mission rewards to string
@@ -399,16 +366,18 @@ end
 
 -- Tooltip Class Hall
 local function classHallTooltip(self)
-    local indent = 5
-    local missions = { completed = {}, inprogress = {}, available = {}, building = {} }
-
     GameTooltip:SetOwner(self, "ANCHOR_NONE")
     GameTooltip:SetPoint("TOPLEFT", self, "BOTTOMLEFT", 0, -25)
 
+    local indent = 5
+    local missions = { completed = {}, inprogress = {}, available = {} }
+
     -- Completed/In Progress mission information
-    local items = C_Garrison.GetLandingPageItems() or {}
+    local items = C_Garrison.GetLandingPageItems(LE_GARRISON_TYPE_8_0) or {}
+
     for i = 1, #items do
         local item = items[i]
+        --print_r(item)
 
         if (item) then
             local key = missions.inprogress
@@ -418,37 +387,12 @@ local function classHallTooltip(self)
             else
                 if item.isComplete then
                     key = missions.completed
-                else
+                elseif item.inprogress then
                     key = missions.inprogress
                 end
             end
 
             table.insert(key, item)
-        end
-    end
-
-    -- Available Missions
-    local items = C_Garrison.GetAvailableMissions() or {}
-    for i = 1, #items do
-        local item = items[i]
-
-        if (item) then
-            table.insert(missions.available, item)
-        end
-    end
-
-    GameTooltip:AddLine("Buildings")
-    GameTooltip:AddDoubleLine("Name and Level", "Available/Max : # Ready + Time Left")
-
-    -- Building info
-    local buildings = C_Garrison.GetBuildings()
-    for i = 1, #buildings do
-        local buildingid = buildings[i].buildingID;
-        local id, name, texPrefix, icon, description, rank, currencyID, currencyQty, goldQty, buildTime, needsPlan, isPrebuilt, possSpecs, upgrades, canUpgrade, isMaxLevel, knownSpecs, currSpec, specCooldown, isBuilding, startTime, buildDuration, timeLeftStr, canActivate, hasFollowerSlot = C_Garrison.GetBuildingInfo(buildingid);
-        local _, _, shipmentCapacity, shipmentsReady, shipmentsTotal, _, duration, timeleftString, itemName, itemIcon, itemQuality, itemID = C_Garrison.GetLandingPageShipmentInfo(buildingid);
-
-        if shipmentsReady ~= nil then
-            GameTooltip:AddDoubleLine(name .. ", level " .. rank, "(" .. (shipmentCapacity - shipmentsTotal) .. "/" .. shipmentCapacity .. " : " .. shipmentsReady .. " ready) " .. (timeleftString or ''), 1, 1, 1, 1, 1, 1)
         end
     end
 
@@ -473,7 +417,7 @@ local function classHallTooltip(self)
 
     GameTooltip:AddLine(" ")
     GameTooltip:AddLine(#missions.available .. " Available")
-    GameTooltip:AddDoubleLine("Names in blue are rare missions", "Rewards")
+    GameTooltip:AddDoubleLine("Name (blue=rare)", "Rewards")
 
     -- sort by level
     table.sort(missions.available, function(a, b) return a.level > b.level end)
@@ -541,7 +485,12 @@ local function friendsTooltip(self)
     table.sort(friends, function(a, b) return a.name < b.name end)
 
     for k, v in pairs(friends) do
-        GameTooltip:AddDoubleLine("" .. v.name .. " on " .. v.toonName .. "-" .. v.realmName, v.level, v.colors[1], v.colors[2], v.colors[3], 1, 1, 1)
+        -- user online but not playing anything
+        if v.toonName == nil or v.toonName == "" then
+            GameTooltip:AddDoubleLine("" .. v.name, v.level, v.colors[1], v.colors[2], v.colors[3], 1, 1, 1)
+        else
+            GameTooltip:AddDoubleLine("" .. v.name .. " on " .. v.toonName .. "-" .. v.realmName, v.level, v.colors[1], v.colors[2], v.colors[3], 1, 1, 1)
+        end
     end
 
     GameTooltip:Show()
@@ -578,9 +527,12 @@ local function xpTooltip(self)
         GameTooltip:SetOwner(self, "ANCHOR_NONE")
         GameTooltip:SetPoint("TOPLEFT", self, "BOTTOMLEFT", -10, -25)
         GameTooltip:SetText("Experience", 1, 1, 1)
-        GameTooltip:AddDoubleLine("Total XP: ", comma_value(UnitXP('player')), nil, nil, nil, 1, 1, 1)
-        GameTooltip:AddDoubleLine("XP till next level: ", comma_value(UnitXPMax('player')), nil, nil, nil, 1, 1, 1)
-        GameTooltip:AddDoubleLine("|c0000ff00Rested XP ", comma_value(GetXPExhaustion()) .. "|r", 1, 1, 1, 1, 1, 1)
+        GameTooltip:AddDoubleLine("Total: ", comma_value(UnitXP('player')), nil, nil, nil, 1, 1, 1)
+        --GameTooltip:AddDoubleLine("XP till next level: ", comma_value(UnitXPMax('player')), nil, nil, nil, 1, 1, 1)
+        GameTooltip:AddDoubleLine("Needed Until Next Level: ", comma_value(UnitXPMax('player')-UnitXP('player')), nil, nil, nil, 1, 1, 1)
+        if GetXPExhaustion() > 0 then
+            GameTooltip:AddDoubleLine("|c0000ff00Rested XP ", comma_value(GetXPExhaustion()) .. "|r", 1, 1, 1, 1, 1, 1)
+        end
         GameTooltip:Show()
     end
 end
@@ -672,7 +624,7 @@ local function moneytooltip(self)
     GameTooltip:SetOwner(self, "ANCHOR_NONE")
     GameTooltip:SetPoint("TOPRIGHT", self, "BOTTOMLEFT", 450, -25)
     GameTooltip:SetText("Characters", 1, 1, 1)
-    print_r(Infostrip)
+
     for character, data in pairs(Infostrip) do
         total = total + data.money
         table.insert(chars, { name = character, money = data.money, class = data.class })
@@ -690,6 +642,89 @@ local function moneytooltip(self)
     GameTooltip:AddDoubleLine("|rTotal: ", format("%s", GetCoinTextureString(total)), 1, 1, 1, 1, 1, 1)
     GameTooltip:Show()
 end
+
+
+---------------------------------------------------------
+-- Broken Isle World Questing Functions
+---------------------------------------------------------
+
+-- Tooltip World Quests
+local function wqTooltip(self)
+    local MAP_ZONES = {
+        [863] = { id = 863, name = C_Map.GetMapInfo(863).name, quests = {}, buttons = {}, glows = {}, name = "Nazmir" },  -- Nazmir
+        [864] = { id = 864, name = C_Map.GetMapInfo(864).name, quests = {}, buttons = {}, glows = {}, name = "Vol'dun" },  -- Vol'dun
+        [862] = { id = 862, name = C_Map.GetMapInfo(862).name, quests = {}, buttons = {}, glows = {}, name = "Zuldazar" },  -- Zuldazar
+        [895] = { id = 895, name = C_Map.GetMapInfo(895).name, quests = {}, buttons = {}, glows = {}, name = "Tiragarde" },  -- Tiragarde
+        [942] = { id = 942, name = C_Map.GetMapInfo(942).name, quests = {}, buttons = {}, glows = {}, name = "Stormsong Valley" },  -- Stormsong Valley
+        [896] = { id = 896, name = C_Map.GetMapInfo(896).name, quests = {}, buttons = {}, glows = {}, name = "Drustvar" },  -- Drustvar
+        [14]  = { id =  14, name = C_Map.GetMapInfo(14).name,  quests = {}, buttons = {}, glows = {}, name = "Arathi" },  -- Arathi
+    }
+
+    for mapId in next, MAP_ZONES do
+        local taskInfo = C_TaskQuest.GetQuestsForPlayerByMapID(mapId)
+        --print(#taskInfo)
+        if taskInfo then
+            for i, info in ipairs(taskInfo) do
+                local questID = info.questId
+                local tmp = C_TaskQuest.GetQuestInfoByQuestID(questID)
+                local tagId, tagName, worldQuestType, isRare, isElite, tradeskillLineIndex = GetQuestTagInfo(questID)
+
+                if worldQuestType ~= nil then
+                    --[[
+                        local tagID, tagName, worldQuestType, isRare, isElite, tradeskillLineIndex = GetQuestTagInfo(v);
+
+                        tagId = 116
+                        tagName = Blacksmithing World Quest
+                        worldQuestType =
+                            1 -> profession,
+                            2 -> pve?
+                            3 -> pvp
+                            4 -> battle pet
+                            5 -> ??
+                            6 -> dungeon
+                        isRare =
+                            1 -> normal
+                            2 -> rare
+                            3 -> epic
+                        isElite = true/false
+                        tradeskillLineIndex = some number, no idea of meaning atm
+                        ]]
+
+                    local quest = MAP_ZONES[mapId].quests[questID] or {}
+
+                    -- GetQuestsForPlayerByMapID fields
+                    quest.questId = questID
+                    quest.numObjectives = taskInfo[i].numObjectives
+
+                    -- GetQuestTagInfo fields
+                    quest.tagId = tagId
+                    quest.tagName = tagName
+                    quest.worldQuestType = worldQuestType
+                    quest.isRare = isRare
+                    quest.isElite = isElite
+                    local title, factionId = C_TaskQuest.GetQuestInfoByQuestID(questID)
+                    quest.title = title
+
+                    GameTooltip:AddDoubleLine(quest.title, quest.isRare, nil, nil, nil, 1, 1, 1)
+
+                    --MAP_ZONES[mapId].quests[questID] = quest
+                end
+            end
+        end
+
+        for i, info in ipairs(MAP_ZONES[mapId].quests) do
+            local tmp = info
+            GameTooltip:AddDoubleLine(tmp.title, tmp.isRare, nil, nil, nil, 1, 1, 1)
+        end
+
+        GameTooltip:Show()
+    end
+end
+--    tagID, tagName, worldQuestType, rarity, isElite, tradeskillLineIndex = GetQuestTagInfo(questID)
+--    worldQuestType =======
+--LE_QUEST_TAG_TYPE_PVP, LE_QUEST_TAG_TYPE_PET_BATTLE, LE_QUEST_TAG_TYPE_PROFESSION, LE_QUEST_TAG_TYPE_DUNGEON
+--    rarity =======
+--LE_WORLD_QUEST_QUALITY_COMMON, LE_WORLD_QUEST_QUALITY_RARE, LE_WORLD_QUEST_QUALITY_EPIC
 
 btn:Show()
 
@@ -710,7 +745,6 @@ f:RegisterEvent("PLAYER_MONEY")
 f:RegisterEvent("UNIT_DAMAGE")
 f:RegisterEvent("GUILD_ROSTER_UPDATE")
 f:RegisterEvent("PLAYER_GUILD_UPDATE")
-f:RegisterEvent("PLAYER_ENTERING_WORLD")
 f:RegisterEvent("UPDATE_PENDING_MAIL")
 f:RegisterEvent("MAIL_CLOSED")
 f:RegisterEvent("MAIL_SHOW")
@@ -990,9 +1024,75 @@ function GetDST(hour)
     end
 end
 
+
+function tprint(tbl, indent)
+    if not indent then indent = 0 end
+    for k, v in pairs(tbl) do
+        formatting = string.rep("  ", indent) .. k .. ": "
+        if type(v) == "table" then
+            print(formatting)
+            tprint(v, indent + 1)
+        elseif type(v) == 'boolean' then
+            print(formatting .. tostring(v))
+        else
+            print(formatting .. v)
+        end
+    end
+end
+
+function print_r( t )
+    local print_r_cache={}
+    local function sub_print_r(t,indent)
+        if (print_r_cache[tostring(t)]) then
+            print(indent.."*"..tostring(t))
+        else
+            print_r_cache[tostring(t)]=true
+            if (type(t)=="table") then
+                for pos,val in pairs(t) do
+                    if (type(val)=="table") then
+                        print(indent.."["..pos.."] => "..tostring(t).." {")
+                        sub_print_r(val,indent..string.rep(" ",string.len(pos)+8))
+                        print(indent..string.rep(" ",string.len(pos)+6).."}")
+                    elseif (type(val)=="string") then
+                        print(indent.."["..pos..'] => "'..val..'"')
+                    else
+                        print(indent.."["..pos.."] => "..tostring(val))
+                    end
+                end
+            else
+                print(indent..tostring(t))
+            end
+        end
+    end
+    if (type(t)=="table") then
+        print(tostring(t).." {")
+        sub_print_r(t,"  ")
+        print("}")
+    else
+        sub_print_r(t,"  ")
+    end
+    print()
+end
+
+function comma_value(amount)
+    local formatted = amount
+
+    while true do
+        formatted, k = string.gsub(formatted, "^(-?%d+)(%d%d%d)", '%1,%2')
+
+        if (k==0) then
+            break
+        end
+    end
+
+    return formatted
+end
+
 ---------------------------------------------------------
 -- Event Functions
 ---------------------------------------------------------
+btn:SetScript("OnClick", InfoStrip_changeTrack)
+
 badgebtn:SetScript("OnEnter", badgeTooltip)
 badgebtn:SetScript("OnLeave", hidetooltip)
 
@@ -1003,16 +1103,14 @@ friendbtn:SetScript("OnEnter", friendsTooltip)
 friendbtn:SetScript("OnLeave", hidetooltip)
 friendbtn:SetScript("OnClick", function(...) ToggleFriendsFrame(1) end)
 
-if IsInGuild() then
-    guildiesbtn:SetScript("OnEnter", guildiesTooltip)
-    guildiesbtn:SetScript("OnLeave", hidetooltip)
-end
+guildiesbtn:SetScript("OnEnter", guildiesTooltip)
+guildiesbtn:SetScript("OnLeave", hidetooltip)
 
 mailbtn:SetScript("OnEnter", showmailtip)
 mailbtn:SetScript("OnLeave", hidemailtip)
 
---classhallbtn:SetScript("OnEnter", classHallTooltip)
---classhallbtn:SetScript("OnLeave", hidetooltip)
+classhallbtn:SetScript("OnEnter", classHallTooltip)
+classhallbtn:SetScript("OnLeave", hidetooltip)
 
 repbtn:SetScript("OnEnter", repTooltip)
 repbtn:SetScript("OnLeave", hidetooltip)
@@ -1025,31 +1123,32 @@ levelbtn:SetScript("OnClick", function(...) RequestTimePlayed() end)
 membtn:SetScript("OnEnter", memtooltip)
 membtn:SetScript("OnLeave", hidetooltip)
 
+wqbtn:SetScript("OnEnter", wqTooltip)
+wqbtn:SetScript("OnLeave", hidetooltip)
+
 f:SetScript("OnEvent", InfoStrip_eventHandler)
-f:SetScript("OnEnter", moneytooltip)
-f:SetScript("OnLeave", hidetooltip)
-btn:SetScript("OnClick", InfoStrip_changeTrack)
+--f:SetScript("OnEnter", moneytooltip)
+--f:SetScript("OnLeave", hidetooltip)
+
+local dateInfo = date("*t")
 f:SetScript("OnUpdate", function(self, elapsed)
     TimeSinceLastUpdate = TimeSinceLastUpdate + elapsed
     if TimeSinceLastUpdate >= 1 then
         GuildRoster()
 
-        local hour, min = GetGameTime()
-        local unitx, unity = GetPlayerMapPosition("player")
-
+        if IsInInstance() == booleanTrue then
+            xPlayer, yPlayer = 0, 0
+        else
+            local bestMap = GetBestMapForUnit( "player" )
+            if bestMap then -- Will be nil for a short moment while hearthing / zen pilgrimage / etc
+                xPlayer, yPlayer = GetPlayerMapPosition( bestMap, "player" ):GetXY()
+            end
+        end
+        --local position = C_Map.GetPlayerMapPosition(C_Map.GetBestMapForUnit("player"), "player")
+        dateInfo = date("*t")
+        
         memfs:SetFormattedText("%dms %dfps", select(3, GetNetStats()), GetFramerate())
-        --timefs:SetFormattedText("(%d, %d)  %s:%s %s", (unitx * 100), (unity * 100), GetHour(hour), GetMin(min), GetDST(hour))
+        timefs:SetFormattedText("(%d, %d)     %s:%s %s", (xPlayer * 100), (yPlayer * 100), GetHour(dateInfo.hour), GetMin(dateInfo.min), GetDST(dateInfo.hour))
         TimeSinceLastUpdate = 0
     end
 end)
-
-function comma_value(amount)
-    local formatted = amount
-    while true do
-        formatted, k = string.gsub(formatted, "^(-?%d+)(%d%d%d)", '%1,%2')
-        if (k==0) then
-            break
-        end
-    end
-    return formatted
-end
