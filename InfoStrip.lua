@@ -13,16 +13,6 @@ local MAX_GUILDIES = 25 -- Maximum guild members to display in dropdown list
 local MAX_FACTIONS = 25 -- Maximum factions to display in dropdown list
 local MAX_LEVEL = 120
 
--- Hide order hall bar
-if not IsAddOnLoaded("Blizzard_OrderHallUI") then
-    LoadAddOn("Blizzard_OrderHallUI")
-end
-
-local b = OrderHallCommandBar
-b:UnregisterAllEvents()
-b:SetScript("OnShow", b.Hide)
-b:Hide()
-
 function Set(list)
     local set = {}
     for _, l in ipairs(list) do set[l] = true end
@@ -32,6 +22,10 @@ end
 local screenWidth = GetScreenWidth() * UIParent:GetEffectiveScale()
 local TimeSinceLastUpdate = 0
 local money = 0
+
+local C_AzeriteItem_FindActiveAzeriteItem = C_AzeriteItem.FindActiveAzeriteItem
+local C_AzeriteItem_GetAzeriteItemXPInfo = C_AzeriteItem.GetAzeriteItemXPInfo
+local C_AzeriteItem_GetPowerLevel = C_AzeriteItem.GetPowerLevel
 
 local GetPlayerMapPosition = GetPlayerMapPosition
 
@@ -81,10 +75,6 @@ f:SetPoint("TOPRIGHT", 0, 0)
 f:SetBackdrop({bgFile = "Interface/Tooltips/UI-Tooltip-Background"})
 f:SetBackdropColor(0, 0, 0) --Set the background colour to black
 f:SetPoint("CENTER") --Put it in the centre of the parent frame (UIParent)
-
---local background_frame = f:CreateTexture(nil, "ARTWORK")
---background_frame:SetTexture(0, 0, 0, 1)
---background_frame:SetAllPoints(f)
 
 local border_frame = f:CreateTexture(nil, "BORDER")
 border_frame:SetTexture(.4, .4, .4)
@@ -190,25 +180,35 @@ else
     repbtn:SetPoint("RIGHT", membtn, "LEFT", -10, 0)
 end
 
---Class Hall button
+--Missons button (was Class Hall/Order Hall)
 local classhallbtn = CreateFrame("BUTTON", "InfoStripClassHallBtn", f)
 classhallbtn:SetWidth(40)
 classhallbtn:SetHeight(10)
 local classhallfs = classhallbtn:CreateFontString()
 classhallfs:SetFont(font, fontheight)
 classhallbtn:SetFontString(classhallfs)
-classhallbtn:SetText("Class Hall")
+classhallbtn:SetText("Missons")
 classhallbtn:SetPoint("RIGHT", repbtn, "LEFT", -10, 0)
 
 --World Quests
 local wqbtn = CreateFrame("BUTTON", "InfoStripWQBtn", f)
-wqbtn:SetWidth(175)
+wqbtn:SetWidth(75)
 wqbtn:SetHeight(10)
 local wqfs = wqbtn:CreateFontString()
 wqfs:SetFont(font, fontheight)
 wqbtn:SetFontString(wqfs)
 wqbtn:SetText("World Quests")
-wqbtn:SetPoint("RIGHT", classhallbtn, "Right", -10, 0)
+wqbtn:SetPoint("RIGHT", classhallbtn, "LEFT", -10, 0)
+
+--Azerite Info
+local azeritebtn = CreateFrame("BUTTON", "InfoStripAzeriteBtn", f)
+azeritebtn:SetWidth(50)
+azeritebtn:SetHeight(10)
+local azeritefs = azeritebtn:CreateFontString()
+azeritefs:SetFont(font, fontheight)
+azeritebtn:SetFontString(azeritefs)
+azeritebtn:SetText("Azerite")
+azeritebtn:SetPoint("RIGHT", wqbtn, "LEFT", -10, 0)
 
 --Threat Button
 local threatbtn = CreateFrame("BUTTON", "InfoStripThreatBtn", f)
@@ -218,7 +218,7 @@ local threatfs = threatbtn:CreateFontString()
 threatfs:SetFont(font, fontheight)
 threatbtn:SetFontString(threatfs)
 threatbtn:SetText("Threat")
-threatbtn:SetPoint("RIGHT", wqbtn, "Right", -10, 0)
+threatbtn:SetPoint("RIGHT", azeritebtn, "LEFT", -10, 0)
 
 ---------------------------------------------------------
 -- Tracking Drop down menu
@@ -259,8 +259,9 @@ end
 ---------------------------------------------------------
 -- Tooltips
 ---------------------------------------------------------
+
 -- Tooltip Badges
-local function badgeTooltip(self)
+local function tooltipBadges(self)
     GameTooltip:SetOwner(self, "ANCHOR_NONE")
     GameTooltip:SetPoint("TOPLEFT", self, "BOTTOMLEFT", 0, -25)
     GameTooltip:SetText("Badges", 1, 1, 1)
@@ -274,18 +275,11 @@ local function badgeTooltip(self)
         end
     end
 
-    -- if HasArtifactEquipped() then
-    --     local _, _, name, _, totalPower, traitsLearned = C_ArtifactUI.GetEquippedArtifactInfo()
-    --     local numTraitsLearnable, power, powerForNextTrait = MainMenuBar_GetNumArtifactTraitsPurchasableFromXP(traitsLearned, totalPower)
-
-    --     GameTooltip:AddDoubleLine(name, comma_value(totalPower)..' - '..comma_value(powerForNextTrait), nil, nil, nil, 1, 1, 1)
-    -- end
-
     GameTooltip:Show()
 end
 
 -- Tooltip Guildies
-local function guildiesTooltip(self)
+local function tooltipGuildies(self)
     if IsInGuild() then
         local members = {}
         local numGuildMembers, numOnline, numOnlineAndMobile = GetNumGuildMembers()
@@ -332,7 +326,6 @@ local function formatRewards(rewards, numRewards)
 
         if (reward.itemID) then
             local name, link, quality, iLevel, reqLevel, class, subclass, maxStack, equipSlot, texture, vendorPrice = GetItemInfo(reward.itemID)
-            --local quantity_colors = ITEM_QUALITY_COLORS[quality]
 
             if name then
                 Reward.tooltip = "Item: " .. name
@@ -365,9 +358,10 @@ local function formatRewards(rewards, numRewards)
 end
 
 -- Tooltip Class Hall
-local function classHallTooltip(self)
+local function tooltipClassHall(self)
     GameTooltip:SetOwner(self, "ANCHOR_NONE")
     GameTooltip:SetPoint("TOPLEFT", self, "BOTTOMLEFT", 0, -25)
+    GameTooltip:SetText("Missons", 1, 1, 1)
 
     local indent = 5
     local missions = { completed = {}, inprogress = {}, available = {} }
@@ -377,7 +371,6 @@ local function classHallTooltip(self)
 
     for i = 1, #items do
         local item = items[i]
-        --print_r(item)
 
         if (item) then
             local key = missions.inprogress
@@ -436,7 +429,7 @@ local function classHallTooltip(self)
 end
 
 -- Tooltip Friends
-local function friendsTooltip(self)
+local function tooltipFriends(self)
     local _, numFriends = GetNumFriends()
     local _, bnFriends = BNGetNumFriends()
     local totalFriends = numFriends + bnFriends
@@ -498,7 +491,7 @@ end
 
 
 -- Tooltip Mail
-local function showmailtip(self)
+local function tooltipMail(self)
     GameTooltip:SetOwner(self, "ANCHOR_NONE")
     GameTooltip:SetPoint("TOPRIGHT", self, "BOTTOMRIGHT", -10, -25)
     GameTooltip:AddLine("Unread Mail From:", 1, 1, 1)
@@ -522,7 +515,7 @@ local function showmailtip(self)
 end
 
 -- Tooltip XP
-local function xpTooltip(self)
+local function tooltipXP(self)
     if UnitLevel("player") < MAX_LEVEL then
         GameTooltip:SetOwner(self, "ANCHOR_NONE")
         GameTooltip:SetPoint("TOPLEFT", self, "BOTTOMLEFT", -10, -25)
@@ -538,7 +531,7 @@ local function xpTooltip(self)
 end
 
 -- Tooltip Rep
-local function repTooltip(self)
+local function tooltipReputation(self)
     local totalReps = 0
     local factions = {}
     GameTooltip:SetOwner(self, "ANCHOR_NONE")
@@ -566,7 +559,7 @@ local function repTooltip(self)
 end
 
 -- Tooltip Clock
-local function clockTooltip(self)
+local function tooltipClock(self)
     local realmHour, realmMin = GetGameTime()
     --local localeHour, localeMin = GetLocale()
     local dateInfo = date("*t")
@@ -582,7 +575,7 @@ local function clockTooltip(self)
 end
 
 --Tooltip Memory
-local function memtooltip(self)
+local function tooltipMemoryUsage(self)
     local addons = {}
     local total = 0
     GameTooltip:SetOwner(self, "ANCHOR_NONE")
@@ -617,7 +610,7 @@ local function memtooltip(self)
 end
 
 -- money tooltip
-local function moneytooltip(self)
+local function tooltipMoney(self)
     local chars = {}
     local total = 0
 
@@ -643,88 +636,149 @@ local function moneytooltip(self)
     GameTooltip:Show()
 end
 
+--azerite tooltip
+function tooltipAzerite(self)
+    GameTooltip:SetOwner(self, "ANCHOR_NONE")
+    GameTooltip:SetPoint("TOPLEFT", self, "BOTTOMLEFT", -10, -25)
+    GameTooltip:SetText("Azerite Info", 1, 1, 1)
 
----------------------------------------------------------
--- Broken Isle World Questing Functions
----------------------------------------------------------
+    local azeriteItemLocation = C_AzeriteItem_FindActiveAzeriteItem()
+
+    if azeriteItemLocation then
+        local xp, totalLevelXP = C_AzeriteItem_GetAzeriteItemXPInfo(azeriteItemLocation)
+        local currentLevel = C_AzeriteItem_GetPowerLevel(azeriteItemLocation)
+        local xpToNextLevel = totalLevelXP - xp
+
+        GameTooltip:AddDoubleLine("Current Level", currentLevel, nil, nil, nil, 1, 1, 1)
+        GameTooltip:AddDoubleLine("XP to Next Level", (xpToNextLevel - xp), nil, nil, nil, 1, 1, 1)
+        GameTooltip:AddDoubleLine("Percent In", format('%s%%', floor(xp / xpToNextLevel * 100)), nil, nil, nil, 1, 1, 1)
+
+        GameTooltip:Show()
+    end
+end
 
 -- Tooltip World Quests
-local function wqTooltip(self)
+function tooltipWorldQuests(self)
+    GameTooltip:SetOwner(self, "ANCHOR_NONE")
+    GameTooltip:SetPoint("TOPLEFT", self, "BOTTOMLEFT", -10, -25)
+    GameTooltip:SetText("World Quests", 1, 1, 1)
+
     local MAP_ZONES = {
-        [863] = { id = 863, name = C_Map.GetMapInfo(863).name, quests = {}, buttons = {}, glows = {}, name = "Nazmir" },  -- Nazmir
-        [864] = { id = 864, name = C_Map.GetMapInfo(864).name, quests = {}, buttons = {}, glows = {}, name = "Vol'dun" },  -- Vol'dun
-        [862] = { id = 862, name = C_Map.GetMapInfo(862).name, quests = {}, buttons = {}, glows = {}, name = "Zuldazar" },  -- Zuldazar
-        [895] = { id = 895, name = C_Map.GetMapInfo(895).name, quests = {}, buttons = {}, glows = {}, name = "Tiragarde" },  -- Tiragarde
-        [942] = { id = 942, name = C_Map.GetMapInfo(942).name, quests = {}, buttons = {}, glows = {}, name = "Stormsong Valley" },  -- Stormsong Valley
-        [896] = { id = 896, name = C_Map.GetMapInfo(896).name, quests = {}, buttons = {}, glows = {}, name = "Drustvar" },  -- Drustvar
-        [14]  = { id =  14, name = C_Map.GetMapInfo(14).name,  quests = {}, buttons = {}, glows = {}, name = "Arathi" },  -- Arathi
+        [863] = { id = 863, quests = {}, money = {}, item = {}, currency = {}, name = "Nazmir" },  -- Nazmir
+        [864] = { id = 864, quests = {}, money = {}, item = {}, currency = {}, name = "Vol'dun" },  -- Vol'dun
+        [862] = { id = 862, quests = {}, money = {}, item = {}, currency = {}, name = "Zuldazar" },  -- Zuldazar
+        [895] = { id = 895, quests = {}, money = {}, item = {}, currency = {}, name = "Tiragarde" },  -- Tiragarde
+        [942] = { id = 942, quests = {}, money = {}, item = {}, currency = {}, name = "Stormsong Valley" },  -- Stormsong Valley
+        [896] = { id = 896, quests = {}, money = {}, item = {}, currency = {}, name = "Drustvar" },  -- Drustvar
+        [14]  = { id =  14, quests = {}, name = "Arathi" },  -- Arathi
     }
 
     for mapId in next, MAP_ZONES do
+        GameTooltip:AddDoubleLine(MAP_ZONES[mapId].name, "", 1, 1, 1, 1, 1, 1)
         local taskInfo = C_TaskQuest.GetQuestsForPlayerByMapID(mapId)
-        --print(#taskInfo)
+
         if taskInfo then
             for i, info in ipairs(taskInfo) do
                 local questID = info.questId
-                local tmp = C_TaskQuest.GetQuestInfoByQuestID(questID)
                 local tagId, tagName, worldQuestType, isRare, isElite, tradeskillLineIndex = GetQuestTagInfo(questID)
 
                 if worldQuestType ~= nil then
-                    --[[
-                        local tagID, tagName, worldQuestType, isRare, isElite, tradeskillLineIndex = GetQuestTagInfo(v);
+                    local quest = {}
 
-                        tagId = 116
-                        tagName = Blacksmithing World Quest
-                        worldQuestType =
-                            1 -> profession,
-                            2 -> pve?
-                            3 -> pvp
-                            4 -> battle pet
-                            5 -> ??
-                            6 -> dungeon
-                        isRare =
-                            1 -> normal
-                            2 -> rare
-                            3 -> epic
-                        isElite = true/false
-                        tradeskillLineIndex = some number, no idea of meaning atm
-                        ]]
-
-                    local quest = MAP_ZONES[mapId].quests[questID] or {}
-
-                    -- GetQuestsForPlayerByMapID fields
                     quest.questId = questID
-                    quest.numObjectives = taskInfo[i].numObjectives
-
-                    -- GetQuestTagInfo fields
                     quest.tagId = tagId
                     quest.tagName = tagName
                     quest.worldQuestType = worldQuestType
                     quest.isRare = isRare
                     quest.isElite = isElite
-                    local title, factionId = C_TaskQuest.GetQuestInfoByQuestID(questID)
+                    local title, _ = C_TaskQuest.GetQuestInfoByQuestID(questID)
                     quest.title = title
+                    quest.reward = ''
+                    quest.rewardType = ''
 
-                    GameTooltip:AddDoubleLine(quest.title, quest.isRare, nil, nil, nil, 1, 1, 1)
+                    -- get rewards
+                    if GetQuestLogRewardMoney(questID) > 0 then
+                        quest.reward = GetCoinTextureString(GetQuestLogRewardMoney(questID))
+                        quest.rewardType = 'money'
+                    elseif GetNumQuestLogRewards(questID) > 0 then
+                        local _, _, _, quality, _, itemId = GetQuestLogRewardInfo(1, questID)
 
-                    --MAP_ZONES[mapId].quests[questID] = quest
+                        if itemId then
+                            local itemName, itemLink, _, itemLevel, _, itemType = GetItemInfo(itemId)
+
+                            if (itemType == ARMOR or itemType == WEAPON) then
+                                quest.reward = itemLink
+                            elseif IsArtifactRelicItem(itemId) then
+                                quest.reward = "Relic";
+                            else
+                                quest.reward = itemName;
+                            end
+                        end
+                        quest.rewardType = 'item'
+                    elseif GetQuestLogRewardHonor(questID) > 0 then
+                        quest.reward = "Honor "..GetQuestLogRewardHonor(questID)
+                    elseif GetNumQuestLogRewardCurrencies(questID) > 0 then
+                        local name, _, numItems, rewardId = GetQuestLogRewardCurrencyInfo(GetNumQuestLogRewardCurrencies(questID), questID)
+                        quest.reward = name.." ("..numItems..")"
+                        quest.rewardType = 'currency'
+                    end
+
+
+                    -- hide pvp/dungeon/pet battle quests
+                    if info.worldQuestType ~= LE_QUEST_TAG_TYPE_PVP
+                            and info.worldQuestType ~= LE_QUEST_TAG_TYPE_PET_BATTLE
+                            and info.worldQuestType ~= LE_QUEST_TAG_TYPE_DUNGEON
+                            and info.worldQuestType ~= LE_QUEST_TAG_TYPE_RAID then
+
+                        table.insert(MAP_ZONES[mapId].quests, quest)
+
+                        if quest.rewardType ~= '' then
+                            table.insert(MAP_ZONES[mapId][quest.rewardType], quest)
+                        end
+                    end
                 end
             end
-        end
 
-        for i, info in ipairs(MAP_ZONES[mapId].quests) do
-            local tmp = info
-            GameTooltip:AddDoubleLine(tmp.title, tmp.isRare, nil, nil, nil, 1, 1, 1)
+            for i, info in ipairs(MAP_ZONES[mapId].quests) do
+                local color = { r = nil, g = nil, b = nil }
+
+                if info.isElite then
+                    color = ITEM_QUALITY_COLORS[4]
+                end
+
+                -- only show quests that reward items
+                if info.rewardType == 'item' or info.isElite == true then
+                    GameTooltip:AddDoubleLine(info.title, info.reward, color.r, color.g, color.b, 1, 1, 1)
+                end
+            end
         end
 
         GameTooltip:Show()
     end
 end
---    tagID, tagName, worldQuestType, rarity, isElite, tradeskillLineIndex = GetQuestTagInfo(questID)
---    worldQuestType =======
---LE_QUEST_TAG_TYPE_PVP, LE_QUEST_TAG_TYPE_PET_BATTLE, LE_QUEST_TAG_TYPE_PROFESSION, LE_QUEST_TAG_TYPE_DUNGEON
---    rarity =======
---LE_WORLD_QUEST_QUALITY_COMMON, LE_WORLD_QUEST_QUALITY_RARE, LE_WORLD_QUEST_QUALITY_EPIC
+
+function onMainUpdate(self, elapsed)
+    TimeSinceLastUpdate = TimeSinceLastUpdate + elapsed
+
+    if TimeSinceLastUpdate >= 1 then
+        GuildRoster()
+
+        if IsInInstance() then
+            xPlayer, yPlayer = 0, 0
+        else
+            local bestMap = GetBestMapForUnit( "player" )
+            if bestMap then -- Will be nil for a short moment while hearthing / zen pilgrimage / etc
+                xPlayer, yPlayer = GetPlayerMapPosition( bestMap, "player" ):GetXY()
+            end
+        end
+        --local position = C_Map.GetPlayerMapPosition(C_Map.GetBestMapForUnit("player"), "player")
+        dateInfo = date("*t")
+
+        memfs:SetFormattedText("%dms %dfps", select(3, GetNetStats()), GetFramerate())
+        timefs:SetFormattedText("(%d, %d)     %s:%s %s", (xPlayer * 100), (yPlayer * 100), GetHour(dateInfo.hour), GetMin(dateInfo.min), GetDST(dateInfo.hour))
+        TimeSinceLastUpdate = 0
+    end
+end
 
 btn:Show()
 
@@ -807,8 +861,6 @@ function InfoStrip_eventHandler(self, event, arg1, arg2, ...)
     local name, subName = '', ''
     local canGuildRepair = CanGuildBankRepair()
     local friends = numFriends + bnFriends
-    local totalTimePlayed = 0
-    local totalTimeLevel = 0
 
     -- global variables
     if event == "PLAYER_XP_UPDATE" or event == "PLAYER_LEVEL_UP" or event == "PLAYER_ENTERING_WORLD" then
@@ -874,6 +926,10 @@ end
 ---------------------------------------------------------
 -- Helper Functions
 ---------------------------------------------------------
+function ternary(cond, T, F)
+    if cond then return T else return F end
+end
+
 function calculateThreat()
     local inCombat = UnitAffectingCombat("player")
     local status = UnitThreatSituation("player")
@@ -1093,62 +1149,44 @@ end
 ---------------------------------------------------------
 btn:SetScript("OnClick", InfoStrip_changeTrack)
 
-badgebtn:SetScript("OnEnter", badgeTooltip)
+badgebtn:SetScript("OnEnter", tooltipBadges)
 badgebtn:SetScript("OnLeave", hidetooltip)
 
-clockbtn:SetScript("OnEnter", clockTooltip)
+clockbtn:SetScript("OnEnter", tooltipClock)
 clockbtn:SetScript("OnLeave", hidetooltip)
 
-friendbtn:SetScript("OnEnter", friendsTooltip)
+friendbtn:SetScript("OnEnter", tooltipFriends)
 friendbtn:SetScript("OnLeave", hidetooltip)
 friendbtn:SetScript("OnClick", function(...) ToggleFriendsFrame(1) end)
 
-guildiesbtn:SetScript("OnEnter", guildiesTooltip)
+guildiesbtn:SetScript("OnEnter", tooltipGuildies)
 guildiesbtn:SetScript("OnLeave", hidetooltip)
 
-mailbtn:SetScript("OnEnter", showmailtip)
+mailbtn:SetScript("OnEnter", tooltipMail)
 mailbtn:SetScript("OnLeave", hidemailtip)
 
-classhallbtn:SetScript("OnEnter", classHallTooltip)
+classhallbtn:SetScript("OnEnter", tooltipClassHall)
 classhallbtn:SetScript("OnLeave", hidetooltip)
 
-repbtn:SetScript("OnEnter", repTooltip)
+repbtn:SetScript("OnEnter", tooltipReputation)
 repbtn:SetScript("OnLeave", hidetooltip)
 repbtn:SetScript("OnClick", function(...) ToggleCharacter("ReputationFrame") end)
 
-levelbtn:SetScript("OnEnter", xpTooltip)
+levelbtn:SetScript("OnEnter", tooltipXP)
 levelbtn:SetScript("OnLeave", hidetooltip)
 levelbtn:SetScript("OnClick", function(...) RequestTimePlayed() end)
 
-membtn:SetScript("OnEnter", memtooltip)
+membtn:SetScript("OnEnter", tooltipMemoryUsage)
 membtn:SetScript("OnLeave", hidetooltip)
 
-wqbtn:SetScript("OnEnter", wqTooltip)
+azeritebtn:SetScript("OnEnter", tooltipAzerite)
+azeritebtn:SetScript("OnLeave", hidetooltip)
+
+wqbtn:SetScript("OnEnter", tooltipWorldQuests)
 wqbtn:SetScript("OnLeave", hidetooltip)
 
 f:SetScript("OnEvent", InfoStrip_eventHandler)
---f:SetScript("OnEnter", moneytooltip)
+--f:SetScript("OnEnter", tooltipMoney)
 --f:SetScript("OnLeave", hidetooltip)
 
-local dateInfo = date("*t")
-f:SetScript("OnUpdate", function(self, elapsed)
-    TimeSinceLastUpdate = TimeSinceLastUpdate + elapsed
-    if TimeSinceLastUpdate >= 1 then
-        GuildRoster()
-
-        if IsInInstance() == booleanTrue then
-            xPlayer, yPlayer = 0, 0
-        else
-            local bestMap = GetBestMapForUnit( "player" )
-            if bestMap then -- Will be nil for a short moment while hearthing / zen pilgrimage / etc
-                xPlayer, yPlayer = GetPlayerMapPosition( bestMap, "player" ):GetXY()
-            end
-        end
-        --local position = C_Map.GetPlayerMapPosition(C_Map.GetBestMapForUnit("player"), "player")
-        dateInfo = date("*t")
-        
-        memfs:SetFormattedText("%dms %dfps", select(3, GetNetStats()), GetFramerate())
-        timefs:SetFormattedText("(%d, %d)     %s:%s %s", (xPlayer * 100), (yPlayer * 100), GetHour(dateInfo.hour), GetMin(dateInfo.min), GetDST(dateInfo.hour))
-        TimeSinceLastUpdate = 0
-    end
-end)
+f:SetScript("OnUpdate", onMainUpdate)
