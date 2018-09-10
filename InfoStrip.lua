@@ -22,20 +22,6 @@ end
 local screenWidth = GetScreenWidth() * UIParent:GetEffectiveScale()
 local TimeSinceLastUpdate = 0
 local money = 0
-
-local C_AzeriteItem_FindActiveAzeriteItem = C_AzeriteItem.FindActiveAzeriteItem
-local C_AzeriteItem_GetAzeriteItemXPInfo = C_AzeriteItem.GetAzeriteItemXPInfo
-local C_AzeriteItem_GetPowerLevel = C_AzeriteItem.GetPowerLevel
-
-local GetPlayerMapPosition = GetPlayerMapPosition
-
-if C_Map then   -- From 8.0
-    GetBestMapForUnit = C_Map.GetBestMapForUnit
-    GetPlayerMapPosition = C_Map.GetPlayerMapPosition
-else
-    local GetCursorPosition = GetCursorPosition
-end
-
 local xPlayer, yPlayer, xCursor, yCursor;
 
 local CLASS_COLORS = {
@@ -497,7 +483,8 @@ local function tooltipMail(self)
     GameTooltip:AddLine("Unread Mail From:", 1, 1, 1)
 
     if HasNewMail() then
-        sender1, sender2, sender3 = GetLatestThreeSenders()
+        local sender1, sender2, sender3 = GetLatestThreeSenders()
+
         if sender1 ~= nil then
             GameTooltip:AddLine(sender1, 1, 1, 1)
         end
@@ -578,14 +565,16 @@ end
 local function tooltipMemoryUsage(self)
     local addons = {}
     local total = 0
+
     GameTooltip:SetOwner(self, "ANCHOR_NONE")
     GameTooltip:SetPoint("TOPLEFT", self, "BOTTOMLEFT", -10, -25)
     GameTooltip:SetText("Memory Usage", 1, 1, 1)
+
     UpdateAddOnMemoryUsage()
 
     for i = 1, GetNumAddOns() do
         if IsAddOnLoaded(i) and table.getn(addons) <= MAX_ADDONS then
-            memory = GetAddOnMemoryUsage(i)
+            local memory = GetAddOnMemoryUsage(i)
 
             if memory > 0 then
                 total = total + memory
@@ -593,6 +582,7 @@ local function tooltipMemoryUsage(self)
             end
         end
     end
+
     table.sort(addons, function(a, b) return a[2] > b[2] end)
 
     for k, v in pairs(addons) do
@@ -642,11 +632,11 @@ function tooltipAzerite(self)
     GameTooltip:SetPoint("TOPLEFT", self, "BOTTOMLEFT", -10, -25)
     GameTooltip:SetText("Azerite Info", 1, 1, 1)
 
-    local azeriteItemLocation = C_AzeriteItem_FindActiveAzeriteItem()
+    local azeriteItemLocation = C_AzeriteItem.FindActiveAzeriteItem()
 
     if azeriteItemLocation then
-        local xp, totalLevelXP = C_AzeriteItem_GetAzeriteItemXPInfo(azeriteItemLocation)
-        local currentLevel = C_AzeriteItem_GetPowerLevel(azeriteItemLocation)
+        local xp, totalLevelXP = C_AzeriteItem.GetAzeriteItemXPInfo(azeriteItemLocation)
+        local currentLevel = C_AzeriteItem.GetPowerLevel(azeriteItemLocation)
         local xpToNextLevel = totalLevelXP - xp
 
         GameTooltip:AddDoubleLine("Current Level", currentLevel, nil, nil, nil, 1, 1, 1)
@@ -766,16 +756,21 @@ function onMainUpdate(self, elapsed)
         if IsInInstance() then
             xPlayer, yPlayer = 0, 0
         else
-            local bestMap = GetBestMapForUnit( "player" )
+            local bestMap = C_Map.GetBestMapForUnit( "player" )
             if bestMap then -- Will be nil for a short moment while hearthing / zen pilgrimage / etc
-                xPlayer, yPlayer = GetPlayerMapPosition( bestMap, "player" ):GetXY()
+                xPlayer, yPlayer = C_Map.GetPlayerMapPosition( bestMap, "player" ):GetXY()
             end
         end
-        --local position = C_Map.GetPlayerMapPosition(C_Map.GetBestMapForUnit("player"), "player")
-        dateInfo = date("*t")
+        local dateInfo = date("*t")
 
         memfs:SetFormattedText("%dms %dfps", select(3, GetNetStats()), GetFramerate())
-        timefs:SetFormattedText("(%d, %d)     %s:%s %s", (xPlayer * 100), (yPlayer * 100), GetHour(dateInfo.hour), GetMin(dateInfo.min), GetDST(dateInfo.hour))
+        timefs:SetFormattedText("(%d, %d)     %s:%s %s",
+            (xPlayer * 100),
+            (yPlayer * 100),
+            GetHour(dateInfo.hour),
+            GetMin(dateInfo.min),
+            GetDST(dateInfo.hour)
+        )
         TimeSinceLastUpdate = 0
     end
 end
@@ -872,8 +867,9 @@ function InfoStrip_eventHandler(self, event, arg1, arg2, ...)
         RepairItems()
     end
 
+    --TODO Make money available across characters
     -- save/get currenty from all characters
-    if event == "PLAYER_MONEY" then
+    --[[if event == "PLAYER_MONEY" then
         Infostrip[GetUnitName("player")].money = GetMoney()
     end
 
@@ -883,7 +879,7 @@ function InfoStrip_eventHandler(self, event, arg1, arg2, ...)
         end
 
         if Infostrip[GetUnitName("player")] == nil then
-            class, classFileName = UnitClass("player")
+            local class, classFileName = UnitClass("player")
 
             Infostrip[GetUnitName("player")] = { money = GetMoney(), class = classFileName }
         end
@@ -891,7 +887,7 @@ function InfoStrip_eventHandler(self, event, arg1, arg2, ...)
 
     if event == "PLAYER_LOGOUT" then
          Infostrip[GetUnitName("player")].money = GetMoney()
-    end
+    end]]
 
     friendbtn:SetText("Friends: " .. friends)
     btn:SetFormattedText(getTrackingText())
@@ -971,7 +967,7 @@ function SellGreyItems()
     for bag = 0, 4 do
         for slot = 1, GetContainerNumSlots(bag) do
             if not (GetContainerNumSlots(bag) == nil) then
-                itemInfo = GetContainerItemLink(bag, slot)
+                local itemInfo = GetContainerItemLink(bag, slot)
 
                 if itemInfo ~= nil then
                     local name, _, quality, _, _, _, _, _, _, _, vendorPrice = GetItemInfo(itemInfo)
@@ -1082,9 +1078,13 @@ end
 
 
 function tprint(tbl, indent)
-    if not indent then indent = 0 end
+    if not indent then
+        indent = 0
+    end
+
     for k, v in pairs(tbl) do
-        formatting = string.rep("  ", indent) .. k .. ": "
+        local formatting = string.rep("  ", indent) .. k .. ": "
+
         if type(v) == "table" then
             print(formatting)
             tprint(v, indent + 1)
@@ -1131,12 +1131,12 @@ function print_r( t )
 end
 
 function comma_value(amount)
-    local formatted = amount
+    local formatted, k = amount, -1
 
     while true do
         formatted, k = string.gsub(formatted, "^(-?%d+)(%d%d%d)", '%1,%2')
 
-        if (k==0) then
+        if k == 0 then
             break
         end
     end
