@@ -640,8 +640,8 @@ function tooltipAzerite(self)
         local xpToNextLevel = totalLevelXP - xp
 
         GameTooltip:AddDoubleLine("Current Level", currentLevel, nil, nil, nil, 1, 1, 1)
-        GameTooltip:AddDoubleLine("XP to Next Level", (xpToNextLevel - xp), nil, nil, nil, 1, 1, 1)
-        GameTooltip:AddDoubleLine("Percent In", format('%s%%', floor(xp / xpToNextLevel * 100)), nil, nil, nil, 1, 1, 1)
+        GameTooltip:AddDoubleLine("XP to Next Level", xpToNextLevel, nil, nil, nil, 1, 1, 1)
+        GameTooltip:AddDoubleLine("Percent In", format('%s%%', floor((xp / xpToNextLevel) * 100)), nil, nil, nil, 1, 1, 1)
 
         GameTooltip:Show()
     end
@@ -736,8 +736,7 @@ function tooltipWorldQuests(self)
                     color = ITEM_QUALITY_COLORS[4]
                 end
 
-                -- only show quests that reward items
-                if info.rewardType == 'item' or info.isElite == true then
+                if info.isElite then
                     GameTooltip:AddDoubleLine(info.title, info.reward, color.r, color.g, color.b, 1, 1, 1)
                 end
             end
